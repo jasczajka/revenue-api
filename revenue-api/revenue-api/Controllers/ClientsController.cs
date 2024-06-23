@@ -40,6 +40,10 @@ public class ClientsController : ControllerBase
     public async Task<IActionResult> UpdateCorporateClientAsync(int clientId, UpdateCorporateClientDto newClientInfo,
         CancellationToken cancellationToken)
     {
+        if (clientId != newClientInfo.ClientId)
+        {
+            return BadRequest("URL does not match the client"); 
+        }
         var updatedClient = await _revenueService.UpdateCorporateClientInfo(clientId, newClientInfo, cancellationToken);
         return Ok(updatedClient);
     }
@@ -47,7 +51,13 @@ public class ClientsController : ControllerBase
     public async Task<IActionResult> UpdateIndividualClientAsync(int clientId, UpdateIndividualClientDto newClientInfo,
         CancellationToken cancellationToken)
     {
+        if (clientId != newClientInfo.ClientId)
+        {
+            return BadRequest("URL does not match the client"); 
+        }
         var updatedClient = await _revenueService.UpdateIndividualClientInfo(clientId, newClientInfo, cancellationToken);
         return Ok(updatedClient);
     }
+
+    
 }

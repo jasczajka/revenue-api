@@ -14,14 +14,17 @@ public class ClientRepository : IClientRepository
     }
     public async Task<Client?> GetClientByIdAsync(int idClient, CancellationToken cancellationToken)
     {
-        var client = await _unitOfWork.GetDbContext().Clients.FirstOrDefaultAsync(c => c.ClientId == idClient, cancellationToken);
+        var client = await _unitOfWork.GetDbContext().Clients
+            .Include(c => c.Contracts)
+            .ThenInclude(c => c.Software)
+            .FirstOrDefaultAsync(c => c.ClientId == idClient, cancellationToken);
         return client;
     }
 
     public async Task<IndividualClient?> GetIndividualClientByIdAsync(int idClient, CancellationToken cancellationToken)
     {
         var individualClient = await _unitOfWork.GetDbContext().IndividualClients
-            .FirstOrDefaultAsync(ic => ic.ClientId == idClient);
+            .FirstOrDefaultAsync(ic => ic.ClientId == idClient, cancellationToken);
         return individualClient;
     }
 
@@ -71,7 +74,7 @@ public class ClientRepository : IClientRepository
     {
         //here we have checked in service that it is not a corporate client
         IndividualClient client = await _unitOfWork.GetDbContext().IndividualClients
-            .FirstOrDefaultAsync(ic => ic.ClientId == idClient);
+            .FirstOrDefaultAsync(ic => ic.ClientId == idClient, cancellationToken);
         client.IsDeleted = true;
         client.DeletedOnUtc = DateTime.Now;
         await _unitOfWork.CommitAsync(cancellationToken);

@@ -45,10 +45,35 @@ public class FakeClientRepository : IClientRepository
                 EmailAddress = "jane.doe@example.com",
                 PhoneNumber = "444-555-6666",
                 Address = "789 Suburb Ln, Suburbia, SB 78901",
-            }
+            },
+            new IndividualClient("10987654621")
+            {
+                ClientId = 5,
+                FirstName = "Jane",
+                LastName = "Duuf",
+                EmailAddress = "jane.duuff@example.com",
+                PhoneNumber = "444-555-6666",
+                Address = "789 Suburb Ln, Suburbia, SB 78901",
+            },
+
         };
-        
+        _clients.First(c => c.ClientId == 5).Contracts.Add(
+            new Contract(DateOnly.FromDateTime(DateTime.Now.AddDays(-10)),
+                DateOnly.FromDateTime(DateTime.Now.AddDays(-5)), 2, 1.0f,
+                _clients.First(c => c.ClientId == 5),
+                new Software
+                {
+                    SoftwareId = 1,
+                    Name = "Software A",
+                    YearlyPrice = 1000
+                })
+            {
+                
+                ContractId = 1,
+                IsSigned = true,
+            });
     }
+
     public Task<Client?> GetClientByIdAsync(int idClient, CancellationToken cancellationToken)
     {
         var client = _clients.FirstOrDefault(c => c.ClientId == idClient);
@@ -133,5 +158,70 @@ public class FakeClientRepository : IClientRepository
         clientToUpdate.PhoneNumber = newClientInfo.PhoneNumber;
         clientToUpdate.Address = newClientInfo.Address;
         return Task.FromResult(clientToUpdate);
+    }
+
+    public static List<Client> GetTestClients()
+    {
+        var clients =  new List<Client>
+        {
+            new CorporateClient("12345678901234")
+            {
+                ClientId = 1,
+                CompanyName = "Company A",
+                EmailAddress = "companyA@example.com",
+                PhoneNumber = "123-456-7890",
+                Address = "123 Corporate Ave, Business City, BZ 12345"
+            },
+            new CorporateClient("98765432109876")
+            {
+                ClientId = 2,
+                CompanyName = "Company B",
+                EmailAddress = "companyB@example.com",
+                PhoneNumber = "098-765-4321",
+                Address = "987 Corporate Rd, Industry Town, IN 98765"
+            },
+            new IndividualClient("12345678901")
+            {
+                ClientId = 3,
+                FirstName = "John",
+                LastName = "Doe",
+                EmailAddress = "john.doe@example.com",
+                PhoneNumber = "111-222-3333",
+                Address = "456 Residential St, Hometown, HT 45678",
+            },
+            new IndividualClient("10987654321")
+            {
+                ClientId = 4,
+                FirstName = "Jane",
+                LastName = "Doe",
+                EmailAddress = "jane.doe@example.com",
+                PhoneNumber = "444-555-6666",
+                Address = "789 Suburb Ln, Suburbia, SB 78901",
+            },
+            new IndividualClient("10987654621")
+            {
+            ClientId = 5,
+            FirstName = "Jane",
+            LastName = "Duuf",
+            EmailAddress = "jane.duuff@example.com",
+            PhoneNumber = "444-555-6666",
+            Address = "789 Suburb Ln, Suburbia, SB 78901",
+        }
+        };
+        clients.First(c => c.ClientId == 5).Contracts.Add(
+            new Contract(DateOnly.FromDateTime(DateTime.Now.AddDays(-10)),
+                DateOnly.FromDateTime(DateTime.Now.AddDays(-5)), 2, 1.0f,
+                clients.First(c => c.ClientId == 5),
+                new Software
+                {
+                    SoftwareId = 1,
+                    Name = "Software A",
+                    YearlyPrice = 1000
+                })
+            {
+                ContractId = 1,
+                IsSigned = true,
+            });
+        return clients;
     }
 }

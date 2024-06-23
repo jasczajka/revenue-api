@@ -11,12 +11,19 @@ namespace RevenueApiTests;
 public class ClientTests
 {
     private readonly IClientRepository _clientRepository;
+    private readonly IContractRepository _contractRepository;
+    private readonly ISoftwareRepository _softwareRepository;
+    
     private readonly IRevenueService _revenueService;
 
     public ClientTests()
     {
         _clientRepository = new FakeClientRepository();
-        _revenueService = new RevenueService(_clientRepository);
+        _contractRepository = new FakeContractRepository();
+        _softwareRepository = new FakeSoftwareRepository();
+        
+        
+        _revenueService = new RevenueService(_clientRepository, _contractRepository, _softwareRepository);
     }
     [Fact]
     public async Task AddNewCorporateClientAsync_ShouldThrowException_WhenKrsIsNotUnique()
@@ -82,7 +89,7 @@ public class ClientTests
         Assert.Equal(newIndividualClientDto.Pesel, newClient.Pesel);
     }
     [Fact]
-    public async Task AddNewIndividualClientAsync_ShouldThrowException_WhenPeselIsNotUnique()
+    public async Task AddNewIndividualClientAsync_ShouldThrowDomainException_WhenPeselIsNotUnique()
     {
         // Arrange
         var newIndividualClientDto = new NewIndividualClientDto
@@ -114,7 +121,7 @@ public class ClientTests
         Assert.NotNull(individualClient.DeletedOnUtc);
     }
     [Fact]
-    public async Task DeleteClientByIdAsync_ShouldThrowException_WhenClientIsCorporate()
+    public async Task DeleteClientByIdAsync_ShouldThrowDomainException_WhenClientIsCorporate()
     {
         // Arrange
         int clientId = 1; // existing corporate client
@@ -126,13 +133,13 @@ public class ClientTests
         });
     }
     [Fact]
-    public async Task DeleteClientByIdAsync_ShouldThrowException_WhenClientDoesNotExist()
+    public async Task DeleteClientByIdAsync_ShouldThrowNoSuchResourceException_WhenClientDoesNotExist()
     {
         // Arrange
         int nonExistentClientId = 999;
 
         // Act & Assert
-        await Assert.ThrowsAsync<DomainException>(async () =>
+        await Assert.ThrowsAsync<NoSuchResourceException>(async () =>
             await _revenueService.DeleteClientByIdAsync(nonExistentClientId, CancellationToken.None));
     }
     [Fact]
@@ -179,7 +186,7 @@ public class ClientTests
         Assert.Equal(updateIndividualClientDto.FirstName, updatedClient.FirstName);
     }
     [Fact]
-    public async Task UpdateCorporateClientInfo_ShouldThrowException_WhenClientNotExists()
+    public async Task UpdateCorporateClientInfo_ShouldThrowNoSuchResourceException_WhenClientNotExists()
     {
         // Arrange
         int clientId = 999; // existing corporate client
@@ -193,14 +200,14 @@ public class ClientTests
 
        
         // Act and Assert
-        await Assert.ThrowsAsync<DomainException>(async () =>
+        await Assert.ThrowsAsync<NoSuchResourceException>(async () =>
         {
             await _revenueService.UpdateCorporateClientInfo(clientId, updateCorporateClientDto, CancellationToken.None);
         });
     }
 
     [Fact]
-    public async Task UpdateIndividualClientInfo_ShouldThrowException_WhenClientNotExists()
+    public async Task UpdateIndividualClientInfo_ShouldThrowNoSuchResourceException_WhenClientNotExists()
     {
         // Arrange
         int clientId = 9999; // existing individual client
@@ -214,7 +221,7 @@ public class ClientTests
         };
 
         // Act and Assert
-        await Assert.ThrowsAsync<DomainException>(async () =>
+        await Assert.ThrowsAsync<NoSuchResourceException>(async () =>
         {
             await _revenueService.UpdateIndividualClientInfo(clientId, updateIndividualClientDto,
                 CancellationToken.None);

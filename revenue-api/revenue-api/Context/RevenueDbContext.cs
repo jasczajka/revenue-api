@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using revenue_api.Helpers;
 using revenue_api.Models;
+using revenue_api.Models.Auth;
 
 namespace revenue_api.Context;
 
@@ -12,6 +14,7 @@ public class RevenueDbContext : DbContext
     public DbSet<Discount> Discounts { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<Software> Softwares { get; set; }
+    public DbSet<AppUser> Users { get; set; }
     public RevenueDbContext()
     {
     }
@@ -31,7 +34,6 @@ public class RevenueDbContext : DbContext
                 foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
             }
         }
-
     }
 
 }

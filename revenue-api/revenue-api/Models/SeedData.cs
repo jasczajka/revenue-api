@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using revenue_api.Context;
+using revenue_api.Helpers;
+using revenue_api.Models.Auth;
 
 namespace revenue_api.Models;
 
@@ -16,6 +18,7 @@ public static class SeedData
             InitializeDiscounts(context);
             InitializeContracts(context);
             InitializePayments(context);
+            InitializeAdmin(context);
         }
     }
     public static void InitializeClients(RevenueDbContext context)
@@ -169,6 +172,28 @@ public static class SeedData
 
         context.SaveChanges();
     }
+    private static void InitializeAdmin(RevenueDbContext context)
+    {
+        if (context.Users.Where(u => u.Role == Role.Admin).Any())
+        {
+            return; // Admin already seeded
+        }
 
+        var hashedPasswordAndSalt = SecurityHelpers.GetHashedPasswordAndSalt("admin");
+
+        context.Users.Add(new AppUser()
+        {
+            Email = "admin@admin",
+            Login = "admin",
+            Password = hashedPasswordAndSalt.Item1,
+            Salt = hashedPasswordAndSalt.Item2,
+            RefreshToken = SecurityHelpers.GenerateRefreshToken(),
+            RefreshTokenExp = DateTime.MaxValue,
+            Role = Role.Admin
+        });
+        
+
+        context.SaveChanges();
+    }
 
 }

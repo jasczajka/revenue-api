@@ -55,6 +55,15 @@ public class FakeClientRepository : IClientRepository
                 PhoneNumber = "444-555-6666",
                 Address = "789 Suburb Ln, Suburbia, SB 78901",
             },
+            new IndividualClient("16987654621")
+            {
+                ClientId = 6,
+                FirstName = "Jan",
+                LastName = "Kowalski",
+                EmailAddress = "jan.kowalski@example.com",
+                PhoneNumber = "444-434-6666",
+                Address = "Batuty 8 Warszawa 02-791",
+            },
 
         };
         _clients.First(c => c.ClientId == 5).Contracts.Add(
@@ -71,6 +80,20 @@ public class FakeClientRepository : IClientRepository
                 
                 ContractId = 1,
                 IsSigned = true,
+            });
+        _clients.First(c => c.ClientId == 6).Contracts.Add(
+            new Contract(DateOnly.FromDateTime(DateTime.Now.AddDays(-10)),
+                DateOnly.FromDateTime(DateTime.Now.AddDays(-5)), 2, 1.0f,
+                _clients.First(c => c.ClientId == 6),
+                new Software
+                {
+                    SoftwareId = 3,
+                    Name = "Software A",
+                    YearlyPrice = 1000
+                })
+            {
+                
+                ContractId = 6,
             });
     }
 
@@ -206,7 +229,16 @@ public class FakeClientRepository : IClientRepository
             EmailAddress = "jane.duuff@example.com",
             PhoneNumber = "444-555-6666",
             Address = "789 Suburb Ln, Suburbia, SB 78901",
-        }
+            },
+            new IndividualClient("16987654621")
+            {
+                ClientId = 6,
+                FirstName = "Jan",
+                LastName = "Kowalski",
+                EmailAddress = "jan.kowalski@example.com",
+                PhoneNumber = "444-434-6666",
+                Address = "Batuty 8 Warszawa 02-791",
+            },
         };
         clients.First(c => c.ClientId == 5).Contracts.Add(
             new Contract(DateOnly.FromDateTime(DateTime.Now.AddDays(-10)),
@@ -222,6 +254,21 @@ public class FakeClientRepository : IClientRepository
                 ContractId = 1,
                 IsSigned = true,
             });
+        clients.First(c => c.ClientId == 6).Contracts.Add(
+            new Contract(DateOnly.FromDateTime(DateTime.Now.AddDays(-10)),
+                DateOnly.FromDateTime(DateTime.Now.AddDays(-5)), 2, 1.0f,
+                clients.First(c => c.ClientId == 6),
+                new Software
+                {
+                    SoftwareId = 3,
+                    Name = "Software A",
+                    YearlyPrice = 1000
+                })
+            {
+                
+                ContractId = 6,
+            });
+        
         return clients;
     }
 }

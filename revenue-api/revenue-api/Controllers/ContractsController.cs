@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using revenue_api.Models.Dtos.RequestDtos;
 using revenue_api.Services;
@@ -16,6 +17,7 @@ public class ContractsController : ControllerBase
         _revenueService = revenueService;
     }
     
+    [Authorize]
     [HttpPost("new_contract")]
     public async Task<IActionResult> CreateNewContractAsync(NewContractRequestDto newContractRequestDto,
         CancellationToken cancellationToken)
@@ -23,6 +25,8 @@ public class ContractsController : ControllerBase
         var newContractInfo = await _revenueService.CreateNewContractAsync(newContractRequestDto, cancellationToken);
         return Ok(newContractInfo);
     }
+    
+    [Authorize]
     [HttpPost("issue_payment_for_contract/{contractId:int}")]
     public async Task<IActionResult> IssuePaymentForContractAsync(int contractId, IssuePaymentRequestDto paymentInfo,
         CancellationToken cancellationToken)

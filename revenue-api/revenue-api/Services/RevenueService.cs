@@ -1,5 +1,11 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
 using revenue_api.Exceptions;
+using revenue_api.Helpers;
 using revenue_api.Models;
+using revenue_api.Models.Auth;
 using revenue_api.Models.Dtos.RequestDtos;
 using revenue_api.Models.Dtos.ReturnDtos;
 using revenue_api.Repositories;
@@ -11,12 +17,18 @@ public class RevenueService : IRevenueService
     private readonly IClientRepository _clientRepository;
     private readonly IContractRepository _contractRepository;
     private readonly ISoftwareRepository _softwareRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly IConfiguration _configuration;
+    private readonly ICurrencyExchangeService _currencyExchangeService;
 
-    public RevenueService(IClientRepository clientRepository, IContractRepository contractRepository, ISoftwareRepository softwareRepository)
+    public RevenueService(IClientRepository clientRepository, IContractRepository contractRepository, ISoftwareRepository softwareRepository, ICurrencyExchangeService currencyExchangeService, IUserRepository userRepository, IConfiguration configuration)
     {
         _clientRepository = clientRepository;
         _contractRepository = contractRepository;
         _softwareRepository = softwareRepository;
+        _userRepository = userRepository;
+        _currencyExchangeService = currencyExchangeService;
+        _configuration = configuration;
     }
     
     
@@ -176,7 +188,6 @@ public class RevenueService : IRevenueService
     public async Task<NewContractReturnDto> CreateNewContractAsync(NewContractRequestDto newContractRequestDto,
         CancellationToken cancellationToken)
     {
-        //  Tworząc umowę, upewnij się, że klient nie ma już aktywnej subskrypcji ani aktywnej umowy na ten produkt.
         var client =
             await _clientRepository.GetClientByIdAsync(newContractRequestDto.ClientId, cancellationToken);
         if (client == null)
@@ -218,6 +229,86 @@ public class RevenueService : IRevenueService
         };
     }
 
+    public async Task<ProductRevenueReturnDto> GetRevenueForProductAsync(int idProduct, bool calculateProjected,
+        CancellationToken cancellationToken, string currencySymbol = "PLN")
+    {
+        var software = await _softwareRepository.GetSoftwareByIdAsync(idProduct, cancellationToken);
+        if (software == null)
+        {
+            throw new NoSuchResourceException($"no software with id {idProduct}");
+        }
+        var contracts =
+            await _contractRepository.GetContractsWithPaymentsForSoftwareByIdAsync(idProduct, cancellationToken);
+        if (!calculateProjected)
+        {
+            contracts = contracts.Where(c => c.IsSigned).ToList();
+        }
+
+        decimal revenueInPln = contracts
+            .Select(c => c.Payments)
+            .Sum(payments => payments
+                .Sum(p => p.AmountPaid));
+        if (currencySymbol != "PLN")
+        {
+            decimal exchangeRate = await _currencyExchangeService.GetExchangeRate("PLN", currencySymbol);
+           
+
+            decimal revenueNotInPln = exchangeRate * revenueInPln;
+            return new ProductRevenueReturnDto()
+            {
+                Currency = currencySymbol,
+                ProductId = idProduct,
+                Revenue = revenueNotInPln
+            };
+        }
+        return new ProductRevenueReturnDto()
+        {
+            Currency = "PLN",
+            ProductId = idProduct,
+            Revenue = revenueInPln
+        };
+
+    }
+
+    public async Task<ClientRevenueReturnDto> GetRevenueForClientAsync(int idClient, bool calculateProjected,
+        CancellationToken cancellationToken, string currencySymbol = "PLN")
+    {
+        var client = await _clientRepository.GetClientByIdAsync(idClient, cancellationToken);
+        if (client == null)
+        {
+            throw new NoSuchResourceException($"no client with id {idClient}");
+        }
+        var contracts =
+            await _contractRepository.GetContractsWithPaymentsForClientByIdAsync(idClient, cancellationToken);
+        if (!calculateProjected)
+        {
+            contracts = contracts.Where(c => c.IsSigned).ToList();
+        }
+
+        decimal revenueInPln = contracts
+            .Select(c => c.Payments)
+            .Sum(payments => payments
+                .Sum(p => p.AmountPaid));
+        if (currencySymbol != "PLN")
+        {
+            decimal exchangeRate = await _currencyExchangeService.GetExchangeRate("PLN", currencySymbol);
+           
+
+            decimal revenueNotInPln = exchangeRate * revenueInPln;
+            return new ClientRevenueReturnDto()
+            {
+                Currency = currencySymbol,
+                ClientId = idClient,
+                Revenue = revenueNotInPln
+            };
+        }
+        return new ClientRevenueReturnDto()
+        {
+            Currency = "PLN",
+            ClientId = idClient,
+            Revenue = revenueInPln
+        };
+    }
     public bool CheckIfClientAlreadyHasActiveContractForThisSoftware(Client client, int idSoftware)
     {
         //if bought a subscripotion within last year
@@ -271,5 +362,91 @@ public class RevenueService : IRevenueService
         decimal discountAmount = (priceWithoutDiscount * totalDiscount) / 100m;
         return priceWithoutDiscount - discountAmount;
     }
+    public async Task<AppUser> RegisterUserAsync(RegisterRequest registerRequest, CancellationToken cancellationToken)
+    {
+        var hashedPasswordAndSalt = SecurityHelpers.GetHashedPasswordAndSalt(registerRequest.Password);
+
+        var newUser = await _userRepository.RegisterUserToDbAsync(registerRequest, hashedPasswordAndSalt, cancellationToken);
+        return newUser;
+
+    }
+    
+    public async Task<Tuple<string, string>> ValidateLoginAsync(LoginRequest loginRequest, CancellationToken cancellationToken)
+    {
+        AppUser? user = await _userRepository.GetUserByLoginAsync(loginRequest.Login, cancellationToken);
+        if (user == null)
+        {
+            throw new Exception("user with login: " + loginRequest.Login + "not found");
+        }
+
+        string passwordHashFromDb = user.Password;
+        //weryfikacja
+        string curHashedPassword = SecurityHelpers.GetHashedPasswordWithSalt(loginRequest.Password, user.Salt);
+        if (passwordHashFromDb != curHashedPassword)
+        {
+            throw new Exception("unathorized");
+        }
+
+        Claim[] userclaim = new[]
+        {
+            new Claim(ClaimTypes.Name, user.Login),
+            new Claim(ClaimTypes.Role, user.Role.ToString()),
+        };
+        SymmetricSecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["SecretKey"]));
+        SigningCredentials creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        JwtSecurityToken token = new JwtSecurityToken(
+            issuer: "issuer",
+            audience: "audience",
+            claims: userclaim,
+            expires: DateTime.Now.AddMinutes(10),
+            signingCredentials: creds
+        );
+        user.RefreshToken = SecurityHelpers.GenerateRefreshToken();
+        user.RefreshTokenExp = DateTime.Now.AddDays(1);
+        
+        var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+        var refreshToken = user.RefreshToken;
+        
+        return new Tuple<string, string>(accessToken, refreshToken);
+    }
+    
+    public async Task<Tuple<string, string>> RefreshLoginAsync(RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken)
+    {
+        var user = await _userRepository.GetUserByRefreshTokenAsync(refreshTokenRequest.RefreshToken, cancellationToken);
+        if (user == null)
+        {
+            throw new SecurityTokenException("Invalid refresh token");
+        }
+
+        if (user.RefreshTokenExp < DateTime.Now)
+        {
+            throw new SecurityTokenException("Refresh token expired");
+        }
+        Claim[] userclaim = new[]
+        {
+            new Claim(ClaimTypes.Name, user.Login),
+            new Claim(ClaimTypes.Role, user.Role.ToString()),
+        };
+        SymmetricSecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["SecretKey"]));
+        SigningCredentials creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        JwtSecurityToken token = new JwtSecurityToken(
+            issuer: "issuer",
+            audience: "audience",
+            claims: userclaim,
+            expires: DateTime.Now.AddMinutes(10),
+            signingCredentials: creds
+        );
+        user.RefreshToken = SecurityHelpers.GenerateRefreshToken();
+        user.RefreshTokenExp = DateTime.Now.AddDays(1);
+        
+        var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+        var refreshToken = user.RefreshToken;
+        
+        return new Tuple<string, string>(accessToken, refreshToken);
+    }
+    
+    
     
 }

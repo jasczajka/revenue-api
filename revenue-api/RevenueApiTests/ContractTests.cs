@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using revenue_api.Exceptions;
 using revenue_api.Models;
 using revenue_api.Models.Dtos.RequestDtos;
@@ -12,6 +13,8 @@ public class ContractTests
     private readonly IClientRepository _clientRepository;
     private readonly IContractRepository _contractRepository;
     private readonly ISoftwareRepository _softwareRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly ICurrencyExchangeService _currencyExchangeService;
     
     private readonly IRevenueService _revenueService;
 
@@ -20,9 +23,16 @@ public class ContractTests
         _clientRepository = new FakeClientRepository();
         _contractRepository = new FakeContractRepository();
         _softwareRepository = new FakeSoftwareRepository();
+        _userRepository = new FakeUserRepository();
+        IConfiguration configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory()) 
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .Build();
         
         
-        _revenueService = new RevenueService(_clientRepository, _contractRepository, _softwareRepository);
+        var httpClient = new HttpClient();
+        _currencyExchangeService = new CurrencyExchangeService(httpClient, configuration);
+        _revenueService = new RevenueService(_clientRepository, _contractRepository, _softwareRepository, _currencyExchangeService, _userRepository, configuration  );
     }
     
     [Fact]
@@ -263,7 +273,6 @@ public class ContractTests
     public async Task IssuePaymentForContractAsync_ProcessessPaymentCorrectly()
     {
         // Arrange
-        // Arrange
         var paymentInfo = new IssuePaymentRequestDto
         {
             ContractId = 5,
@@ -281,6 +290,123 @@ public class ContractTests
         var amountPaid = _revenueService.GetAmountPaidForContract(contract);
         Assert.Equal(100m, amountPaid);
     }
-   
+
+    [Fact]
+    public async Task ExchangeService_GetExchangeRateReturnsValue_WhenValidCurrencies()
+    {
+        string currencyFrom = "PLN";
+        string currencyTo = "USD";
+        
+        
+        var exchangeRate = await _currencyExchangeService.GetExchangeRate(currencyFrom, currencyTo);
+        
+        
+        Assert.True(exchangeRate > 0);
+    }
+    [Fact]
+    public async Task ExchangeService_ThrowsCurrencyExchangeExceptionWhen_FromCurrencyIncorrect()
+    {
+        string currencyFrom = "drfgsvdsgd";
+        string currencyTo = "USD";
+        
+        
+        
+        
+        await Assert.ThrowsAsync<CurrencyExchangeServiceException>(async () =>
+        {
+            await _currencyExchangeService.GetExchangeRate(currencyFrom, currencyTo);
+        });
+    }
+    [Fact]
+    public async Task ExchangeService_ThrowsCurrencyExchangeExceptionWhen_ToCurrencyIncorrect()
+    {
+        string currencyFrom = "PLN";
+        string currencyTo = "drfgsvdsgd";
+        
+        
+        
+        
+        await Assert.ThrowsAsync<CurrencyExchangeServiceException>(async () =>
+        {
+             await _currencyExchangeService.GetExchangeRate(currencyFrom, currencyTo);
+        });
+    }
+
+    [Fact]
+    public async Task GetRevenueForClientAsync_ThrowsNoSuchResourceExceptionWhenClientNotFound()
+    {
+        int notExistingClientId = 999;
+        
+        await Assert.ThrowsAsync<NoSuchResourceException>(() => _revenueService.GetRevenueForClientAsync(notExistingClientId,false,  CancellationToken.None));
+    } 
+    [Fact]
+    public async Task GetRevenueForProductAsync_ThrowsNoSuchResourceExceptionWhenClientNotFound()
+    {
+        int notExistingProductId = 999;
+        
+        await Assert.ThrowsAsync<NoSuchResourceException>(() => _revenueService.GetRevenueForProductAsync(notExistingProductId,false,  CancellationToken.None));
+    } 
+    [Fact]
+    public async Task GetRevenueForProductAsyncNotProjected_DoesNotIncludePaymentsWhenNotSigned()
+    {
+        int productId = 3;
+
+        decimal revenue = (await _revenueService.GetRevenueForProductAsync(productId, false, CancellationToken.None))
+            .Revenue;
+        
+        Assert.Equal(0, revenue);
+        
+    } 
+    [Fact]
+    public async Task GetRevenueForProductAsyncProjected_DoesIncludePaymentsWhenNotSigned()
+    {
+        int productId = 3;
+
+        decimal revenue = (await _revenueService.GetRevenueForProductAsync(productId, true, CancellationToken.None))
+            .Revenue;
+        
+        Assert.True(revenue > 0);
+        
+    } 
+    [Fact]
+    public async Task GetRevenueForClientAsyncNotProjected_DoesNotIncludePaymentsWhenNotSigned()
+    {
+        int clientId = 6;
+
+        decimal revenue = (await _revenueService.GetRevenueForClientAsync(clientId, false, CancellationToken.None))
+            .Revenue;
+        
+        Assert.Equal(0, revenue);
+        
+    } 
+    [Fact]
+    public async Task GetRevenueForClientAsyncProjected_DoesIncludePaymentsWhenNotSigned()
+    {
+        int clientId = 6;
+
+        decimal revenue = (await _revenueService.GetRevenueForClientAsync(clientId, true, CancellationToken.None))
+            .Revenue;
+        
+        Assert.True(revenue > 0);
+        
+    } 
+    [Fact]
+    public async Task ValidateLoginAsync_ValidUser_ShouldReturnTokens()
+    {
+        // Arrange
+        var loginRequest = new revenue_api.Models.Auth.LoginRequest
+        {
+            Login = "user",
+            Password = "userpassword"
+        };
+
+        // Act
+        var result = await _revenueService.ValidateLoginAsync(loginRequest, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(string.IsNullOrEmpty(result.Item1)); // Access token
+        Assert.False(string.IsNullOrEmpty(result.Item2)); // Refresh token
+    }
     
 }

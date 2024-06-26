@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using revenue_api.Context;
 
@@ -11,9 +12,11 @@ using revenue_api.Context;
 namespace revenue_api.Migrations
 {
     [DbContext(typeof(RevenueDbContext))]
-    partial class RevenueDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240625084240_AddAppUsers")]
+    partial class AddAppUsers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

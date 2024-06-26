@@ -50,7 +50,7 @@ namespace RevenueApiTests.Fakes
                     ContractId = 3,
                     Payments = new List<Payment>()
                     {
-                        new Payment { PaymentId = 1, AmountPaid = 3500 },
+                        new Payment { PaymentId = _nextPaymentId ++, AmountPaid = 3500 },
                     }
                 },
                 new Contract(DateOnly.FromDateTime(DateTime.Now.AddDays(-375)), DateOnly.FromDateTime(DateTime.Now.AddDays(-365)), 2, 1.0f,
@@ -66,7 +66,17 @@ namespace RevenueApiTests.Fakes
                     ContractId = 5
                     
                 },
-                
+                new Contract(DateOnly.FromDateTime(DateTime.Now.AddDays(-10)), DateOnly.FromDateTime(DateTime.Now.AddDays(3)), 2, 1.0f,
+                    _clients.First(c => c.ClientId == 6),
+                    _softwares.First(s => s.SoftwareId == 3))
+                {
+                    ContractId = 6,
+                    Payments = new List<Payment>()
+                    {
+                        new Payment { PaymentId = _nextPaymentId ++, AmountPaid = 50 },
+                    }
+                    
+                },
             };
             _nextContractId = _contracts.Max(c => c.ContractId) + 1;
             _clients.Find(c => c.ClientId == 1).Contracts.Add(_contracts.Find(c => c.ContractId == 1));
@@ -123,6 +133,22 @@ namespace RevenueApiTests.Fakes
 
             contract.Payments.Clear();
             return Task.FromResult(paymentsRemovedCount);
+        }
+        
+        public Task<List<Contract>> GetContractsWithPaymentsForClientByIdAsync(int clientId, CancellationToken cancellationToken)
+        {
+            var contracts = _contracts
+                .Where(c => c.Client.ClientId == clientId && c.Payments.Any())
+                .ToList();
+            return Task.FromResult(contracts);
+        }
+
+        public Task<List<Contract>> GetContractsWithPaymentsForSoftwareByIdAsync(int softwareId, CancellationToken cancellationToken)
+        {
+            var contracts = _contracts
+                .Where(c => c.Software.SoftwareId == softwareId && c.Payments.Any())
+                .ToList();
+            return Task.FromResult(contracts);
         }
     }
 }

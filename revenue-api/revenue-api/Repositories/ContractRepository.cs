@@ -20,6 +20,23 @@ public class ContractRepository : IContractRepository
             .Include(c => c.Software)
             .FirstOrDefaultAsync(c => c.ContractId == contractId, cancellationToken);
     }
+
+    public async Task<List<Contract>> GetContractsWithPaymentsForClientByIdAsync(int clientId, CancellationToken cancellationToken)
+    {
+        return await _unitOfWork.GetDbContext().Contracts
+            .Include(c => c.Payments)
+            .Where(c => c.Client.ClientId == clientId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<Contract>> GetContractsWithPaymentsForSoftwareByIdAsync(int softwareId,
+        CancellationToken cancellationToken)
+    {
+        return await _unitOfWork.GetDbContext().Contracts
+            .Include(c => c.Payments)
+            .Where(c => c.Software.SoftwareId == softwareId)
+            .ToListAsync(cancellationToken);
+    }
     public async Task<Payment> IssuePaymentForContractAsync(Contract contract, decimal amount, bool isContractPaid, CancellationToken cancellationToken)
     {
         var client = contract.Client;
@@ -56,4 +73,7 @@ public class ContractRepository : IContractRepository
         await _unitOfWork.CommitAsync(cancellationToken);
         return paymentsRemovedCount;
     }
+    
+    
+    
 }

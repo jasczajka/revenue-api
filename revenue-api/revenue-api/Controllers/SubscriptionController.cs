@@ -30,7 +30,7 @@ public class SubscriptionController : ControllerBase
     {
         if (subscriptionId != subscriptionPaymentInfo.SubscriptionId)
         {
-            return BadRequest("URL does not match the contract"); 
+            return BadRequest("URL does not match the subscription"); 
         }
         await _revenueService.IssuePaymentForSubscriptionAsync(subscriptionPaymentInfo, false, cancellationToken);
         return Ok();

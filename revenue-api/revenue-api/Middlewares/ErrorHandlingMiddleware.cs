@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
 
 namespace revenue_api.Middlewares;
 
@@ -32,24 +33,44 @@ public class ErrorHandlingMiddleware
 
     private Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        // Set the status code and response content
-        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-        context.Response.ContentType = "application/json";
-
-        // Create a response model
-        var response = new
+        if (exception is DbUpdateException)
         {
-            error = new
+            var response = new
             {
-                message = "An error occurred while processing your request.",
-                detail = exception.Message
-            }
-        };
+                error = new
+                {
+                    message = "A database concurrency error occurred while processing your request.",
+                    detail = "internal"
+                }
+            };
+        
+            // Serialize the response model to JSON
+            var jsonResponse = System.Text.Json.JsonSerializer.Serialize(response);
+    
+            // Write the JSON response to the HTTP response
+            return context.Response.WriteAsync(jsonResponse);
+        }
+        else
+        {
+            // Set the status code and response content
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            context.Response.ContentType = "application/json";
 
-        // Serialize the response model to JSON
-        var jsonResponse = System.Text.Json.JsonSerializer.Serialize(response);
+            // Create a response model
+            var response = new
+            {
+                error = new
+                {
+                    message = "An error occurred while processing your request.",
+                    detail = exception.Message
+                }
+            };
 
-        // Write the JSON response to the HTTP response
-        return context.Response.WriteAsync(jsonResponse);
+            // Serialize the response model to JSON
+            var jsonResponse = System.Text.Json.JsonSerializer.Serialize(response);
+
+            // Write the JSON response to the HTTP response
+            return context.Response.WriteAsync(jsonResponse);
+        }
     }
 }

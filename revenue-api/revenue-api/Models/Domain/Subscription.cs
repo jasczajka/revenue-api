@@ -11,6 +11,8 @@ public class Subscription
    public DateOnly ActiveUntil { get; set; }
    [Required]
    public bool IsCurrentPeriodPaid { get; set; }
+   [Timestamp]
+   public byte [] RowVersion { get; set; }
    [Required]
    public virtual SubscriptionOffer SubscriptionOffer { get; set; }
    

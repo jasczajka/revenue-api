@@ -19,6 +19,9 @@ public class SubscriptionOffer
     [Required]
     public virtual Software Software { get; set; }
     
+    [Timestamp]
+    public byte [] RowVersion { get; set; }
+    
 
     
 }

@@ -15,5 +15,6 @@ public class CorporateClient : Client
     [Required, MaxLength(30)]
     public string CompanyName { get; set; }
     
-    
+    [Timestamp]
+    public byte [] RowVersion { get; set; }
 }

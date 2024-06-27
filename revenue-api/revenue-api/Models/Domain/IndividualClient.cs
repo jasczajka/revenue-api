@@ -20,4 +20,7 @@ public class IndividualClient : Client, ISoftDeletable
     [Required]
     public bool IsDeleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
+    
+    [Timestamp]
+    public byte [] RowVersion { get; set; }
 }

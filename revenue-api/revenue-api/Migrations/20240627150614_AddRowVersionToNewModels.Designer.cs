@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using revenue_api.Context;
 
@@ -11,9 +12,11 @@ using revenue_api.Context;
 namespace revenue_api.Migrations
 {
     [DbContext(typeof(RevenueDbContext))]
-    partial class RevenueDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240627150614_AddRowVersionToNewModels")]
+    partial class AddRowVersionToNewModels
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -287,6 +290,12 @@ namespace revenue_api.Migrations
                     b.Property<bool>("IsCurrentPeriodPaid")
                         .HasColumnType("bit");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<int>("SubscriptionOfferId")
                         .HasColumnType("int");
 
@@ -317,6 +326,12 @@ namespace revenue_api.Migrations
 
                     b.Property<int>("RenewalPeriod")
                         .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<int>("SoftwareId")
                         .HasColumnType("int");

@@ -21,5 +21,6 @@ public class Software
     public byte [] RowVersion { get; set; }
 
     public virtual List<Contract> Contracts { get; set; } = [];
+    public virtual List<SubscriptionOffer> SubcriptionOffers { get; set; } = [];
     public virtual List<Discount> Discounts { get; set; } = [];
 }

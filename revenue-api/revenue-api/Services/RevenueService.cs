@@ -18,15 +18,17 @@ public class RevenueService : IRevenueService
     private readonly IContractRepository _contractRepository;
     private readonly ISoftwareRepository _softwareRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly IConfiguration _configuration;
     private readonly ICurrencyExchangeService _currencyExchangeService;
 
-    public RevenueService(IClientRepository clientRepository, IContractRepository contractRepository, ISoftwareRepository softwareRepository, ICurrencyExchangeService currencyExchangeService, IUserRepository userRepository, IConfiguration configuration)
+    public RevenueService(IClientRepository clientRepository, IContractRepository contractRepository, ISoftwareRepository softwareRepository, ICurrencyExchangeService currencyExchangeService, IUserRepository userRepository,ISubscriptionRepository subscriptionRepository, IConfiguration configuration )
     {
         _clientRepository = clientRepository;
         _contractRepository = contractRepository;
         _softwareRepository = softwareRepository;
         _userRepository = userRepository;
+        _subscriptionRepository = subscriptionRepository;
         _currencyExchangeService = currencyExchangeService;
         _configuration = configuration;
     }
@@ -143,13 +145,13 @@ public class RevenueService : IRevenueService
         };
     }
 
-    public async Task IssuePaymentForContractAsync(IssuePaymentRequestDto paymentInfo, CancellationToken cancellationToken)
+    public async Task IssuePaymentForContractAsync(IssueContractPaymentRequestDto contractPaymentInfo, CancellationToken cancellationToken)
     {
         
-        var contract = await _contractRepository.GetContractByIdAsync(paymentInfo.ContractId, cancellationToken);
+        var contract = await _contractRepository.GetContractByIdAsync(contractPaymentInfo.ContractId, cancellationToken);
         if (contract == null)
         {
-            throw new NoSuchResourceException($"no contract with id {paymentInfo.ContractId}");
+            throw new NoSuchResourceException($"no contract with id {contractPaymentInfo.ContractId}");
         }
 
         var client = await _clientRepository.GetClientByIdAsync(contract.Client.ClientId, cancellationToken);
@@ -166,22 +168,69 @@ public class RevenueService : IRevenueService
         decimal priceToPay = GetPriceForContractWithDiscountIncluded(contract, client, software);
         if (paidSoFar >= priceToPay )
         {
-            throw new DomainException($"contract {contract.ContractId} has already been paid for");
+            throw new AlreadyPaidException($"contract {contract.ContractId} has already been paid for");
         }
 
-        if (paidSoFar + paymentInfo.Amount > priceToPay)
+        if (paidSoFar + contractPaymentInfo.Amount > priceToPay)
         {
-            throw new DomainException($"contract {contract.ContractId} should be paid in amount of {priceToPay}, this payment would exceed this amount"); 
+            throw new AmountMismatchException($"contract {contract.ContractId} should be paid in amount of {priceToPay}, this payment would exceed this amount"); 
         }
 
-        if (paymentInfo.DateOfPayment > contract.To)
+        if (contractPaymentInfo.DateOfPayment > contract.To)
         {
             var cancelledPaymentsCount = await _contractRepository.CancelPaymentsForContractAsync(contract, cancellationToken);
-            throw new ContractOverdueException($"contract id {contract.ContractId} payment window closed on {contract.To}, cancelled {cancelledPaymentsCount} previous payments");
+            throw new PaymentOverdueException($"contract id {contract.ContractId} payment window closed on {contract.To}, cancelled {cancelledPaymentsCount} previous payments");
         }
-        bool isContractPaid = paidSoFar + paymentInfo.Amount == priceToPay;
-        await _contractRepository.IssuePaymentForContractAsync(contract, paymentInfo.Amount, isContractPaid,  cancellationToken);
+        bool isContractPaid = paidSoFar + contractPaymentInfo.Amount == priceToPay;
+        await _contractRepository.IssuePaymentForContractAsync(contract, contractPaymentInfo.Amount, isContractPaid,  cancellationToken);
         
+
+    }
+
+    public async Task IssuePaymentForSubscriptionAsync(IssueSubscriptionPaymentRequestDto subPaymentInfo, bool isNewSubscription,
+        CancellationToken cancellationToken)
+    {
+        var subscription = await _subscriptionRepository.GetSubscriptionByIdAsync(subPaymentInfo.SubscriptionId, cancellationToken);
+        if (subscription == null)
+        {
+            throw new NoSuchResourceException($"no subscription with id {subPaymentInfo.SubscriptionId}");
+        }
+
+        
+        if (subscription.IsCurrentPeriodPaid)
+        {
+            throw new AlreadyPaidException(
+                $"subscription id {subscription.SubscriptionId} already paid for current period");
+            
+        }
+        if (CheckIfPaymentForSubscriptionOverdue(subscription, subPaymentInfo.DateOfPayment))
+        {
+            throw new PaymentOverdueException(
+                $"subscription id {subscription.SubscriptionId} payment overdue, should have been paid by {subscription.ActiveUntil}");
+        }
+        //we check if client exists at level of registering the subscription, but just in case another check
+        var client = await _clientRepository.GetClientByIdAsync(subscription.Client.ClientId, cancellationToken);
+        if (client == null)
+        {
+            throw new NoSuchResourceException($"no client with id {subscription.Client.ClientId}");
+        }
+        var discount = IsClientReturning(client) ? 5m : 0m;
+        if (isNewSubscription)
+        {
+            var software =
+                await _softwareRepository.GetSoftwareByIdAsync(subscription.SubscriptionOffer.Software.SoftwareId, cancellationToken);
+            discount += GetHighestDiscountForSoftwareAndSubscription(subPaymentInfo.DateOfPayment, software);
+        }
+        var expectedPaymentAmount = subscription.SubscriptionOffer.Price * (1m - discount / 100m);
+        if (subPaymentInfo.Amount != expectedPaymentAmount)
+        {
+            throw new AmountMismatchException(
+                $"amount mismatch, expected subscription id {subscription.SubscriptionId} payment for is {expectedPaymentAmount}, in request received {subPaymentInfo.Amount}"
+            );
+        }
+
+        await _subscriptionRepository.IssuePaymentForSubscriptionAsync(subscription, subPaymentInfo.Amount, subPaymentInfo.DateOfPayment,
+            cancellationToken);
 
     }
     
@@ -199,10 +248,10 @@ public class RevenueService : IRevenueService
         {
             throw new NoSuchResourceException($"no software with id {newContractRequestDto.SoftwareId}");
         }
-        if (CheckIfClientAlreadyHasActiveContractForThisSoftware(client, newContractRequestDto.SoftwareId))
+        if (CheckIfClientAlreadyHasActiveContractOrSubscriptionForThisSoftware(client, newContractRequestDto.SoftwareId))
         {
-            throw new DomainException(
-                $"client with id  ${client.ClientId} already has an active contract for software with id {newContractRequestDto.SoftwareId}");
+            throw new ClientHasThisSoftwareException(
+                $"client with id  ${client.ClientId} already has an active contract or subscription for software with id {newContractRequestDto.SoftwareId}");
         }
 
         if (!new List<int> { 0, 1, 2, 3 }.Contains(newContractRequestDto.YearsOfUpdateSupport))
@@ -229,9 +278,59 @@ public class RevenueService : IRevenueService
         };
     }
 
+    public async Task<NewSubscriptionReturnDto> CreateNewSubscriptionAsync(
+        NewSubscriptionRequestDto newSubscriptionRequestDto, CancellationToken cancellationToken)
+    {
+        var client =
+            await _clientRepository.GetClientByIdAsync(newSubscriptionRequestDto.ClientId, cancellationToken);
+        if (client == null)
+        {
+            throw new NoSuchResourceException($"no client with id {newSubscriptionRequestDto.ClientId}");
+        }
+        var software = await _softwareRepository.GetSoftwareByIdAsync(newSubscriptionRequestDto.SoftwareId, cancellationToken);
+        if (software == null)
+        {
+            throw new NoSuchResourceException($"no software with id {newSubscriptionRequestDto.SoftwareId}");
+        }
+        var subscriptionOffer = await _subscriptionRepository.GetSubscriptionOfferByIdAsync(newSubscriptionRequestDto.SubscriptionOfferId, cancellationToken);
+        if (subscriptionOffer == null)
+        {
+            throw new NoSuchResourceException($"no subscription offer with id {newSubscriptionRequestDto.SubscriptionOfferId}");
+        }
+        if (CheckIfClientAlreadyHasActiveContractOrSubscriptionForThisSoftware(client, newSubscriptionRequestDto.SoftwareId))
+        {
+            throw new DomainException(
+                $"client with id  ${client.ClientId} already has an active contract or subscription for software with id {newSubscriptionRequestDto.SoftwareId}");
+        }
+
+        var newSubscription = await _subscriptionRepository.CreateNewSubscriptionAsync(newSubscriptionRequestDto.From,
+            subscriptionOffer, newSubscriptionRequestDto.SoftwareVersion, client, cancellationToken);
+        
+        //tu trzeba naprawic amount
+        var discount = IsClientReturning(client) ? 5m : 0m;
+        
+        discount += GetHighestDiscountForSoftwareAndSubscription(newSubscriptionRequestDto.From, software);
+        var newSubPaymentInfo = new IssueSubscriptionPaymentRequestDto()
+        {
+            SubscriptionId = newSubscription.SubscriptionId,
+            Amount = subscriptionOffer.Price * (1m - discount / 100m),
+            DateOfPayment = newSubscriptionRequestDto.From
+        };
+        await IssuePaymentForSubscriptionAsync(newSubPaymentInfo, true, cancellationToken);
+        return new NewSubscriptionReturnDto()
+        {
+            ClientId = newSubscription.Client.ClientId,
+            NextPaymentDate = newSubscription.ActiveUntil,
+            RenewalPeriod = subscriptionOffer.RenewalPeriod,
+            SoftwareId = software.SoftwareId,
+            SoftwareVersion = subscriptionOffer.SoftwareVersion,
+            SubscriptionId = newSubscription.SubscriptionId
+        };
+    }
     public async Task<ProductRevenueReturnDto> GetRevenueForProductAsync(int idProduct, bool calculateProjected,
         CancellationToken cancellationToken, string currencySymbol = "PLN")
     {
+        var today = DateOnly.FromDateTime(DateTime.Now);
         var software = await _softwareRepository.GetSoftwareByIdAsync(idProduct, cancellationToken);
         if (software == null)
         {
@@ -244,10 +343,33 @@ public class RevenueService : IRevenueService
             contracts = contracts.Where(c => c.IsSigned).ToList();
         }
 
+        var subscriptions =
+            await _subscriptionRepository.GetSubscriptionsWithPaymentsForSoftwareByIdAsync(idProduct,
+                cancellationToken);
+        
+        
+            
+
         decimal revenueInPln = contracts
             .Select(c => c.Payments)
             .Sum(payments => payments
                 .Sum(p => p.AmountPaid));
+        
+        revenueInPln += subscriptions
+            .Where(s => s.IsCurrentPeriodPaid)
+            .Select(s => s.Payments)
+            .Sum(payments => payments
+                .Sum(payment => payment.AmountPaid));
+        //if projected, also add those payments for subscriptions unpaid for current period
+        if (calculateProjected)
+        {
+            revenueInPln += subscriptions
+                    //it can be unpaid, but has to be active and will be off 5 percent because returning 
+                .Where(s => !s.IsCurrentPeriodPaid && !CheckIfPaymentForSubscriptionOverdue(s, today))
+                .Select(s => s.SubscriptionOffer.Price * 0.95m)
+                .Sum();
+        }
+        
         if (currencySymbol != "PLN")
         {
             decimal exchangeRate = await _currencyExchangeService.GetExchangeRate("PLN", currencySymbol);
@@ -273,6 +395,7 @@ public class RevenueService : IRevenueService
     public async Task<ClientRevenueReturnDto> GetRevenueForClientAsync(int idClient, bool calculateProjected,
         CancellationToken cancellationToken, string currencySymbol = "PLN")
     {
+        var today = DateOnly.FromDateTime(DateTime.Now);
         var client = await _clientRepository.GetClientByIdAsync(idClient, cancellationToken);
         if (client == null)
         {
@@ -284,11 +407,32 @@ public class RevenueService : IRevenueService
         {
             contracts = contracts.Where(c => c.IsSigned).ToList();
         }
+        
+        var subscriptions =
+            await _subscriptionRepository.GetSubscriptionsWithPaymentsForClientByIdAsync(idClient,
+                cancellationToken);
 
         decimal revenueInPln = contracts
             .Select(c => c.Payments)
             .Sum(payments => payments
                 .Sum(p => p.AmountPaid));
+        
+        revenueInPln += subscriptions
+            .Where(s => s.IsCurrentPeriodPaid)
+            .Select(s => s.Payments)
+            .Sum(payments => payments
+                .Sum(payment => payment.AmountPaid));
+        //if projected, also add those payments for subscriptions unpaid for current period
+        if (calculateProjected)
+        {
+            revenueInPln += subscriptions
+                .Where(s => !s.IsCurrentPeriodPaid)
+                //it can be unpaid, but has to be active
+                .Where(s => !s.IsCurrentPeriodPaid && !CheckIfPaymentForSubscriptionOverdue(s, today))
+                .Select(s => s.SubscriptionOffer.Price * 0.95m)
+                .Sum();
+        }
+        
         if (currencySymbol != "PLN")
         {
             decimal exchangeRate = await _currencyExchangeService.GetExchangeRate("PLN", currencySymbol);
@@ -309,19 +453,35 @@ public class RevenueService : IRevenueService
             Revenue = revenueInPln
         };
     }
-    public bool CheckIfClientAlreadyHasActiveContractForThisSoftware(Client client, int idSoftware)
+
+    //to be called at beginning of each day by admin
+    public async Task MarkYesterdayExpiredSubscriptionsAsNotPaid(CancellationToken cancellationToken)
     {
-        //if bought a subscripotion within last year
+        var expiredSubs = await _subscriptionRepository.GetYesterdayExpiredPaidForSubscriptionsAsync(cancellationToken);
+        await _subscriptionRepository.MarkSubscriptionsAsUnpaid(expiredSubs, cancellationToken);
+    }
+    public bool CheckIfClientAlreadyHasActiveContractOrSubscriptionForThisSoftware(Client client, int idSoftware)
+    {
+        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+        //if bought a contract within last year
         List<Contract> contractsForThisSoftware = client.Contracts
             .Where(c => c.Software.SoftwareId == idSoftware)
             .Where(c => c.IsSigned)
-            .Where(c => DateOnly.FromDateTime(DateTime.Now) <= c.From.AddYears(1))
+            .Where(c => today <= c.From.AddYears(1))
             .ToList();
         if (contractsForThisSoftware.Count >= 1)
         {
             return true;
         }
 
+        List<Subscription> activeSubscriptionsForThisSoftware = client.Subscriptions
+            .Where(s => s.SubscriptionOffer.Software.SoftwareId == idSoftware)
+            .Where(s => today <= s.ActiveUntil )
+            .ToList();
+        if (activeSubscriptionsForThisSoftware.Count >= 1)
+        {
+            return true;
+        }
         return false;
     }
     
@@ -332,29 +492,53 @@ public class RevenueService : IRevenueService
             .Sum(p => p.AmountPaid);
     }
 
+    public bool CheckIfPaymentForSubscriptionOverdue(Subscription subscription, DateOnly paymentDate)
+    {
+        return subscription.ActiveUntil < paymentDate;
+    }
+
     public int GetHighestDiscountForSoftwareAndContract(DateOnly contractStart, DateOnly contractEnd, Software software)
     {
         //under the assumption that if a discount is active in any period of the contract 'opening' for payment, the contract is eligible for a discount
         var applicableDiscounts = software.Discounts
             .Where(d => (contractEnd >= d.From && contractEnd <= d.To)
                         || (contractStart >= d.From && contractStart <= d.To)
-            ).ToList();
+            )
+            .Where(d => d.DiscountType == "PUR")
+            .ToList();
         return applicableDiscounts.Any() ? applicableDiscounts.Max(d => d.Value) : 0;
     }
-
-    public int GetTotalDiscountForContract(Contract contract, Client client, Software software)
+    public int GetHighestDiscountForSoftwareAndSubscription(DateOnly subcriptionStart, Software software)
     {
-        bool isReturningClient = client.Contracts
+       //discount only applicable for first payment
+        var applicableDiscounts = software.Discounts
+            .Where( d => d.From <= subcriptionStart && d.To <= subcriptionStart)
+            .Where(d => d.DiscountType == "SUB")
+            .ToList();
+        return applicableDiscounts.Any() ? applicableDiscounts.Max(d => d.Value) : 0;
+    }
+    public bool IsClientReturning(Client client)
+    {
+        bool doesClientHaveContract = client.Contracts
             .Where(c => c.IsSigned)
             .ToList()
             .Count >= 1;
+        //subscription doesnt have to be active for a client to be returning
+        bool doesClientHaveActiveSub = client.Subscriptions
+            .ToList()
+            .Count >= 1;
+        return doesClientHaveContract || doesClientHaveActiveSub;
+    }   
+    public int GetTotalDiscountForContract(Contract contract, Client client, Software software)
+    {
+        bool isReturningClient = IsClientReturning(client);
         int discount = GetHighestDiscountForSoftwareAndContract(contract.From, contract.To, software);
         if (isReturningClient){
             discount += 5;
         }
         return discount;
     }
-
+    
     public decimal GetPriceForContractWithDiscountIncluded(Contract contract, Client client, Software software)
     {
         decimal priceWithoutDiscount = software.YearlyPrice + contract.YearsOfUpdateSupport * 1000m;
@@ -362,10 +546,16 @@ public class RevenueService : IRevenueService
         decimal discountAmount = (priceWithoutDiscount * totalDiscount) / 100m;
         return priceWithoutDiscount - discountAmount;
     }
+    
+    
     public async Task<AppUser> RegisterUserAsync(RegisterRequest registerRequest, CancellationToken cancellationToken)
     {
         var hashedPasswordAndSalt = SecurityHelpers.GetHashedPasswordAndSalt(registerRequest.Password);
-
+        AppUser? user = await _userRepository.GetUserByLoginAsync(registerRequest.Login, cancellationToken);
+        if (user != null)
+        {
+            throw new DomainException("user with this login already exists");
+        }
         var newUser = await _userRepository.RegisterUserToDbAsync(registerRequest, hashedPasswordAndSalt, cancellationToken);
         return newUser;
 

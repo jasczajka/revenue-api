@@ -15,6 +15,7 @@ public class Client
     
     
     public virtual List<Contract> Contracts { get; set; } = [];
+    public virtual List<Subscription> Subscriptions { get; set; } = [];
     public virtual List<Payment> Payments { get; set; } = [];
     
     

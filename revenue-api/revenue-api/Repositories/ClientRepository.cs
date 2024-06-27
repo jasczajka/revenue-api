@@ -17,6 +17,8 @@ public class ClientRepository : IClientRepository
         var client = await _unitOfWork.GetDbContext().Clients
             .Include(c => c.Contracts)
             .ThenInclude(c => c.Software)
+            .Include(c => c.Subscriptions)
+            .ThenInclude(s => s.SubscriptionOffer)
             .FirstOrDefaultAsync(c => c.ClientId == idClient, cancellationToken);
         return client;
     }

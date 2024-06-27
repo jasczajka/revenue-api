@@ -9,8 +9,8 @@ public class Payment
     public int PaymentId { get; set; }
     [Required, Column(TypeName="money")]
     public decimal AmountPaid { get; set; }
-    [Required]
-    public virtual Contract Contract { get; set; }
+    public virtual Contract? Contract { get; set; }
+    public virtual Subscription? Subscription { get; set; }
     [Required]
     public virtual Client Client { get; set; }
 }

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace revenue_api.Models.Dtos.RequestDtos;
 
-public class IssuePaymentRequestDto
+public class IssueContractPaymentRequestDto
 {
     [Required]
     public int ContractId { get; set; }

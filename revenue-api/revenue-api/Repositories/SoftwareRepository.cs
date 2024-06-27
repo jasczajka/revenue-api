@@ -17,4 +17,5 @@ public class SoftwareRepository : ISoftwareRepository
             .Include(s => s.Discounts)
             .FirstOrDefaultAsync(s => s.SoftwareId == softwareId, cancellationToken);
     }
+    
 }

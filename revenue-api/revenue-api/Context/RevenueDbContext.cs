@@ -15,6 +15,8 @@ public class RevenueDbContext : DbContext
     public DbSet<Payment> Payments { get; set; }
     public DbSet<Software> Softwares { get; set; }
     public DbSet<AppUser> Users { get; set; }
+    public DbSet<Subscription> Subscriptions { get; set; }
+    public DbSet<SubscriptionOffer> SubscriptionOffers { get; set; }
     public RevenueDbContext()
     {
     }

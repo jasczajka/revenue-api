@@ -7,7 +7,7 @@ namespace RevenueApiTests.Fakes
     {
         private readonly List<Contract> _contracts;
         private readonly List<Payment> _payments;
-        private readonly List<Software> _softwares;
+        private readonly List<Software> _softwares = FakeSoftwareRepository.GetTestSoftwares();
         private readonly List<Client> _clients = FakeClientRepository.GetTestClients();
         
         private int _nextContractId;
@@ -17,7 +17,6 @@ namespace RevenueApiTests.Fakes
         {
             _nextContractId = 1;
             _nextPaymentId = 1;
-            _softwares = FakeSoftwareRepository.GetTestSoftwares();
             _contracts = new List<Contract>
             {
                 new Contract(DateOnly.FromDateTime(DateTime.Now.AddDays(-10)), DateOnly.FromDateTime(DateTime.Now.AddDays(-5)), 2, 1.0f,
@@ -79,7 +78,6 @@ namespace RevenueApiTests.Fakes
                 },
             };
             _nextContractId = _contracts.Max(c => c.ContractId) + 1;
-            _clients.Find(c => c.ClientId == 1).Contracts.Add(_contracts.Find(c => c.ContractId == 1));
             _payments = _contracts.SelectMany(c => c.Payments).ToList();
         }
 

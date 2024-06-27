@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using revenue_api.Context;
 
@@ -11,9 +12,11 @@ using revenue_api.Context;
 namespace revenue_api.Migrations
 {
     [DbContext(typeof(RevenueDbContext))]
-    partial class RevenueDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240626155526_ModifyClientSoftwareForSubscriptionPurposes")]
+    partial class ModifyClientSoftwareForSubscriptionPurposes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -270,36 +273,7 @@ namespace revenue_api.Migrations
                     b.ToTable("Softwares");
                 });
 
-            modelBuilder.Entity("revenue_api.Models.Subscription", b =>
-                {
-                    b.Property<int>("SubscriptionId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SubscriptionId"));
-
-                    b.Property<DateOnly>("ActiveUntil")
-                        .HasColumnType("date");
-
-                    b.Property<int>("ClientId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsCurrentPeriodPaid")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("SubscriptionOfferId")
-                        .HasColumnType("int");
-
-                    b.HasKey("SubscriptionId");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("SubscriptionOfferId");
-
-                    b.ToTable("Subscriptions");
-                });
-
-            modelBuilder.Entity("revenue_api.Models.SubscriptionOffer", b =>
+            modelBuilder.Entity("revenue_api.Models.SubcriptionOffer", b =>
                 {
                     b.Property<int>("SubscriptionOfferId")
                         .ValueGeneratedOnAdd()
@@ -328,7 +302,36 @@ namespace revenue_api.Migrations
 
                     b.HasIndex("SoftwareId");
 
-                    b.ToTable("SubscriptionOffers");
+                    b.ToTable("SubcriptionOffers");
+                });
+
+            modelBuilder.Entity("revenue_api.Models.Subscription", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SubscriptionId"));
+
+                    b.Property<DateOnly>("ActiveUntil")
+                        .HasColumnType("date");
+
+                    b.Property<int>("ClientId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsCurrentPeriodPaid")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SubscriptionOfferId")
+                        .HasColumnType("int");
+
+                    b.HasKey("SubscriptionId");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("SubscriptionOfferId");
+
+                    b.ToTable("Subscriptions");
                 });
 
             modelBuilder.Entity("revenue_api.Models.CorporateClient", b =>
@@ -435,26 +438,7 @@ namespace revenue_api.Migrations
                     b.Navigation("Subscription");
                 });
 
-            modelBuilder.Entity("revenue_api.Models.Subscription", b =>
-                {
-                    b.HasOne("revenue_api.Models.Client", "Client")
-                        .WithMany("Subscriptions")
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("revenue_api.Models.SubscriptionOffer", "SubscriptionOffer")
-                        .WithMany()
-                        .HasForeignKey("SubscriptionOfferId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Client");
-
-                    b.Navigation("SubscriptionOffer");
-                });
-
-            modelBuilder.Entity("revenue_api.Models.SubscriptionOffer", b =>
+            modelBuilder.Entity("revenue_api.Models.SubcriptionOffer", b =>
                 {
                     b.HasOne("revenue_api.Models.Software", "Software")
                         .WithMany("SubcriptionOffers")
@@ -463,6 +447,25 @@ namespace revenue_api.Migrations
                         .IsRequired();
 
                     b.Navigation("Software");
+                });
+
+            modelBuilder.Entity("revenue_api.Models.Subscription", b =>
+                {
+                    b.HasOne("revenue_api.Models.Client", "Client")
+                        .WithMany("Subscriptions")
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("revenue_api.Models.SubcriptionOffer", "SubscriptionOffer")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionOfferId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+
+                    b.Navigation("SubscriptionOffer");
                 });
 
             modelBuilder.Entity("revenue_api.Models.Client", b =>

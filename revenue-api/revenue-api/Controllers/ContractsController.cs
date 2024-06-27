@@ -28,14 +28,14 @@ public class ContractsController : ControllerBase
     
     [Authorize]
     [HttpPost("issue_payment_for_contract/{contractId:int}")]
-    public async Task<IActionResult> IssuePaymentForContractAsync(int contractId, IssuePaymentRequestDto paymentInfo,
+    public async Task<IActionResult> IssuePaymentForContractAsync(int contractId, IssueContractPaymentRequestDto contractPaymentInfo,
         CancellationToken cancellationToken)
     {
-        if (contractId != paymentInfo.ContractId)
+        if (contractId != contractPaymentInfo.ContractId)
         {
             return BadRequest("URL does not match the contract"); 
         }
-        await _revenueService.IssuePaymentForContractAsync(paymentInfo, cancellationToken);
+        await _revenueService.IssuePaymentForContractAsync(contractPaymentInfo, cancellationToken);
         return Ok();
     }
     

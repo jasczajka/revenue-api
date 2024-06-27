@@ -16,6 +16,7 @@ public class ClientTests
     private readonly ISoftwareRepository _softwareRepository;
     private readonly ICurrencyExchangeService _currencyExchangeService;
     private readonly IUserRepository _userRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly IRevenueService _revenueService;
 
     public ClientTests()
@@ -24,6 +25,7 @@ public class ClientTests
         _contractRepository = new FakeContractRepository();
         _softwareRepository = new FakeSoftwareRepository();
         _userRepository = new FakeUserRepository();
+        _subscriptionRepository = new FakeSubscriptionRepository();
         IConfiguration configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory()) 
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -32,7 +34,7 @@ public class ClientTests
         
         var httpClient = new HttpClient();
         _currencyExchangeService = new CurrencyExchangeService(httpClient, configuration);
-        _revenueService = new RevenueService(_clientRepository, _contractRepository, _softwareRepository, _currencyExchangeService , _userRepository, configuration);
+        _revenueService = new RevenueService(_clientRepository, _contractRepository, _softwareRepository, _currencyExchangeService , _userRepository, _subscriptionRepository, configuration);
     }
     [Fact]
     public async Task AddNewCorporateClientAsync_ShouldThrowException_WhenKrsIsNotUnique()

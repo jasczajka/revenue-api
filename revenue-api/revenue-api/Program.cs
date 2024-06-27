@@ -51,6 +51,7 @@ builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IContractRepository, ContractRepository>();
 builder.Services.AddScoped<ISoftwareRepository, SoftwareRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<IRevenueService, RevenueService>();
 builder.Services.AddHttpClient<ICurrencyExchangeService, CurrencyExchangeService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();

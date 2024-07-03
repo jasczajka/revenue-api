@@ -7,16 +7,16 @@ namespace revenue_api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class SubscriptionController : ControllerBase
+public class SubscriptionsController : ControllerBase
 {
     private readonly IRevenueService _revenueService;
 
-    public SubscriptionController(IRevenueService revenueService)
+    public SubscriptionsController(IRevenueService revenueService)
     {
         _revenueService = revenueService;
     }
     [Authorize]
-    [HttpPost("new_subscription")]
+    [HttpPost()]
     public async Task<IActionResult> CreateNewSubscriptionAsync(NewSubscriptionRequestDto newSubscriptionRequestDto,
         CancellationToken cancellationToken)
     {
@@ -24,7 +24,7 @@ public class SubscriptionController : ControllerBase
         return Ok(newSubscriptionInfo);
     }
     [Authorize]
-    [HttpPost("issue_payment_for_subscription/{subscriptionId:int}")]
+    [HttpPost("subscriptions/{subscriptionId:int}/payments")]
     public async Task<IActionResult> IssuePaymentForSubscriptionAsync(int subscriptionId, IssueSubscriptionPaymentRequestDto subscriptionPaymentInfo,
         CancellationToken cancellationToken)
     {

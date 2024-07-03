@@ -18,7 +18,7 @@ public class ContractsController : ControllerBase
     }
     
     [Authorize]
-    [HttpPost("new_contract")]
+    [HttpPost()]
     public async Task<IActionResult> CreateNewContractAsync(NewContractRequestDto newContractRequestDto,
         CancellationToken cancellationToken)
     {
@@ -27,7 +27,7 @@ public class ContractsController : ControllerBase
     }
     
     [Authorize]
-    [HttpPost("issue_payment_for_contract/{contractId:int}")]
+    [HttpPost("contracts/{contractId:int}/payments")]
     public async Task<IActionResult> IssuePaymentForContractAsync(int contractId, IssueContractPaymentRequestDto contractPaymentInfo,
         CancellationToken cancellationToken)
     {

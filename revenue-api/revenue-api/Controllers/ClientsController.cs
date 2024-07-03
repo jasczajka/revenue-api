@@ -16,7 +16,7 @@ public class ClientsController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("add_corporate_client")]
+    [HttpPost("corporate_clients")]
     public async Task<IActionResult> AddCorporateClientAsync(NewCorporateClientDto newCorporateClientDto,
         CancellationToken cancellationToken)
     {
@@ -24,7 +24,7 @@ public class ClientsController : ControllerBase
         return Ok(newClient);
     }
     [Authorize]
-    [HttpPost("add_individual_client")]
+    [HttpPost("individual_clients")]
     public async Task<IActionResult> AddIndividualClientAsync(NewIndividualClientDto newIndividualClientDto,
         CancellationToken cancellationToken)
     {
@@ -39,7 +39,7 @@ public class ClientsController : ControllerBase
         return Ok();
     }
     [Authorize (Roles = "Admin")]
-    [HttpPut("update_corporate_client/{clientId:int}")]
+    [HttpPut("corporate_clients/{clientId:int}")]
     public async Task<IActionResult> UpdateCorporateClientAsync(int clientId, UpdateCorporateClientDto newClientInfo,
         CancellationToken cancellationToken)
     {
@@ -51,7 +51,7 @@ public class ClientsController : ControllerBase
         return Ok(updatedClient);
     }
     [Authorize (Roles = "Admin")]
-    [HttpPut("update_individual_client/{clientId:int}")]
+    [HttpPut("individual_clients/{clientId:int}")]
     public async Task<IActionResult> UpdateIndividualClientAsync(int clientId, UpdateIndividualClientDto newClientInfo,
         CancellationToken cancellationToken)
     {
